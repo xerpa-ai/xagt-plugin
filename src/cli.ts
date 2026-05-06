@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -224,7 +224,19 @@ export function resolveBaseUrl(): string {
   return "https://api.xerpaai.com";
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+function isMainModule(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  const here = fileURLToPath(import.meta.url);
+  if (entry === here) return true;
+  try {
+    return realpathSync(entry) === here;
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   runCli(process.argv.slice(2)).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${message}\n`);

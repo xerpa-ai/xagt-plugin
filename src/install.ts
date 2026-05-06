@@ -70,7 +70,7 @@ async function writeCursorManifest(cwd: string): Promise<void> {
     join(manifestDirectory, "plugin.json"),
     `${JSON.stringify(
       {
-        name: "@xagent/agent-plugin",
+        name: "@xagt/agent-plugin",
         displayName: "XAgent Skill Agent Plugin",
         version: "0.1.0",
         skills: ["../skills"]
