@@ -7,8 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { installSkills } from "./install.js";
 import { loadCredentials, clearCredentials } from "./auth/credentials.js";
-import { loginWithDeviceCode } from "./auth/device.js";
-import { loginWithLoopback } from "./auth/loopback.js";
+import { runLogin, type AuthMode } from "./auth/login.js";
 import { saveCredentials } from "./auth/credentials.js";
 import { runSetup } from "./setup.js";
 import { runSubmit, NotRegisteredError } from "./submit.js";
@@ -16,15 +15,17 @@ import { submitInstallReport } from "./report.js";
 import { collectFingerprint } from "./fingerprint.js";
 import { isTargetSelector, type TargetSelector } from "./targets.js";
 
+export type { AuthMode };
+
 export type CliCommand =
   | {
       command: "setup";
       target: TargetSelector;
       dryRun: boolean;
-      noBrowser: boolean;
+      authMode: AuthMode;
       skipSubstep: boolean;
     }
-  | { command: "login"; noBrowser: boolean }
+  | { command: "login"; authMode: AuthMode }
   | { command: "logout" }
   | { command: "report"; target: TargetSelector }
   | { command: "install"; target: TargetSelector; dryRun: boolean }
@@ -41,6 +42,12 @@ export type CliCommand =
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
+function resolveAuthMode(rest: string[]): AuthMode {
+  if (rest.includes("--no-browser")) return "device";
+  if (rest.includes("--loopback")) return "loopback";
+  return "paste";
+}
+
 export function parseArgs(args: string[]): CliCommand {
   const [command = "help", ...rest] = args;
 
@@ -49,7 +56,7 @@ export function parseArgs(args: string[]): CliCommand {
   }
 
   if (command === "login") {
-    return { command, noBrowser: rest.includes("--no-browser") };
+    return { command, authMode: resolveAuthMode(rest) };
   }
 
   if (command === "submit") {
@@ -72,7 +79,6 @@ export function parseArgs(args: string[]): CliCommand {
 
   let target: TargetSelector = "all";
   let dryRun = false;
-  let noBrowser = false;
   let skipSubstep = false;
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -82,8 +88,7 @@ export function parseArgs(args: string[]): CliCommand {
       dryRun = true;
       continue;
     }
-    if (arg === "--no-browser") {
-      noBrowser = true;
+    if (arg === "--no-browser" || arg === "--loopback") {
       continue;
     }
     if (arg === "--skip-substep") {
@@ -108,7 +113,7 @@ export function parseArgs(args: string[]): CliCommand {
   }
 
   if (command === "setup") {
-    return { command, target, dryRun, noBrowser, skipSubstep };
+    return { command, target, dryRun, authMode: resolveAuthMode(rest), skipSubstep };
   }
   if (command === "report") {
     return { command, target };
@@ -139,6 +144,7 @@ export async function runCli(args: string[]): Promise<number> {
     process.stdout.write(`npm: ${npmVersion.trim() || "unavailable"}\n`);
     process.stdout.write(`HOME: ${process.env.HOME ?? "not set"}\n`);
     process.stdout.write(`Backend: ${resolveBaseUrl()}\n`);
+    process.stdout.write(`Frontend: ${resolveFrontendBase()}\n`);
     const creds = await loadCredentials();
     if (!creds) {
       process.stdout.write("Login: not logged in (run `xagent-plugin login`)\n");
@@ -151,6 +157,7 @@ export async function runCli(args: string[]): Promise<number> {
   }
 
   const baseUrl = resolveBaseUrl();
+  const frontendBase = resolveFrontendBase();
   const version = readPackageVersion();
 
   if (command.command === "login") {
@@ -163,9 +170,7 @@ export async function runCli(args: string[]): Promise<number> {
       process.stdout.write("\n  Registering you for the XAgent × OKX hackathon\n");
     }
     process.stdout.write(`  Backend: ${baseUrl}\n`);
-    const credentials = command.noBrowser
-      ? await loginWithDeviceCode({ baseUrl, clientVersion: version })
-      : await loginWithLoopback({ baseUrl, clientVersion: version, openBrowser: true });
+    const credentials = await runLogin({ authMode: command.authMode, baseUrl, frontendBase, version });
     await saveCredentials(credentials);
     process.stdout.write(`\n  ✓ Logged in as ${credentials.userId}\n`);
     process.stdout.write("  ✓ Registered for the hackathon\n\n");
@@ -186,10 +191,11 @@ export async function runCli(args: string[]): Promise<number> {
   if (command.command === "setup") {
     const result = await runSetup({
       baseUrl,
+      frontendBase,
       cliVersion: version,
       target: command.target,
       dryRun: command.dryRun,
-      noBrowser: command.noBrowser,
+      authMode: command.authMode,
       skipSubstep: command.skipSubstep
     });
     for (const item of result.installResults) {
@@ -270,16 +276,21 @@ export async function runCli(args: string[]): Promise<number> {
 
 function writeHelp(): void {
   process.stdout.write(`Usage:
-  xagent-plugin setup [--target cursor|claude-code|generic|all] [--dry-run] [--no-browser] [--skip-substep]
+  xagent-plugin setup [--target cursor|claude-code|generic|all] [--dry-run] [--no-browser] [--loopback] [--skip-substep]
                               # one-shot: registers you + installs OKX skills
   xagent-plugin submit [--name <s>] [--intro <s>] [--repo <url>] [--deploy <url>]
                               # opens GitHub in browser to submit your project
-  xagent-plugin login [--no-browser]    # re-login or switch accounts
+  xagent-plugin login [--no-browser] [--loopback]   # re-login or switch accounts
   xagent-plugin logout                  # clear local credentials
   xagent-plugin install [--target ...]  # install skills only (no login)
   xagent-plugin doctor                  # show login + runtime status
   xagent-plugin report [--target ...]   # resend install report
   xagent-plugin print-skill             # print SKILL.md to stdout
+
+Auth modes:
+  default       paste-code flow (browser → page shows code → paste back)
+  --loopback    loopback browser flow (binds a local port, no paste required)
+  --no-browser  device-code flow (for SSH / headless environments)
 
 Hackathon flow:
   1. xagent-plugin setup --target all    # register + install
@@ -306,10 +317,20 @@ export function resolveBaseUrl(): string {
   if (process.env.XAGENT_API_BASE) {
     return process.env.XAGENT_API_BASE;
   }
-  if (process.env.XAGENT_ENV === "test") {
-    return "https://testdapp.xerpaai.com";
+  if (process.env.XAGENT_ENV === "prod") {
+    return "https://api.xerpaai.com";
   }
-  return "https://api.xerpaai.com";
+  return "https://testdapp.xerpaai.com";
+}
+
+export function resolveFrontendBase(): string {
+  if (process.env.XAGENT_FRONTEND_BASE) {
+    return process.env.XAGENT_FRONTEND_BASE;
+  }
+  if (process.env.XAGENT_ENV === "prod") {
+    return "https://www.xerpaai.com";
+  }
+  return "https://testdapp.xerpaai.com";
 }
 
 function isMainModule(): boolean {

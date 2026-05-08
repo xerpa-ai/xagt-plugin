@@ -1,6 +1,5 @@
 import { loadCredentials, saveCredentials, type SavedCredentials } from "./auth/credentials.js";
-import { loginWithDeviceCode } from "./auth/device.js";
-import { loginWithLoopback } from "./auth/loopback.js";
+import { runLogin, type AuthMode } from "./auth/login.js";
 import { collectFingerprint } from "./fingerprint.js";
 import { installSkills, type InstallResult } from "./install.js";
 import { runPluginStoreSubstep, type SubstepResult } from "./install/substep.js";
@@ -9,10 +8,11 @@ import type { InstallTargetId, TargetSelector } from "./targets.js";
 
 export interface SetupOptions {
   baseUrl: string;
+  frontendBase: string;
   cliVersion: string;
   target: TargetSelector;
   dryRun: boolean;
-  noBrowser: boolean;
+  authMode: AuthMode;
   skipSubstep: boolean;
 }
 
@@ -30,13 +30,12 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   }
 
   process.stdout.write("\n  Step 1/2 — register for the hackathon\n\n");
-  let credentials: SavedCredentials = options.noBrowser
-    ? await loginWithDeviceCode({ baseUrl: options.baseUrl, clientVersion: options.cliVersion })
-    : await loginWithLoopback({
-        baseUrl: options.baseUrl,
-        clientVersion: options.cliVersion,
-        openBrowser: true
-      });
+  const credentials = await runLogin({
+    authMode: options.authMode,
+    baseUrl: options.baseUrl,
+    frontendBase: options.frontendBase,
+    version: options.cliVersion
+  });
   await saveCredentials(credentials);
   process.stdout.write(`\n  ✓ Registered as ${credentials.userId}\n\n`);
   process.stdout.write("  Step 2/2 — installing OKX skills\n\n");

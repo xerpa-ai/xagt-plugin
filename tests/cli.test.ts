@@ -7,13 +7,28 @@ describe("parseArgs", () => {
       command: "setup",
       target: "generic",
       dryRun: false,
-      noBrowser: true,
+      authMode: "device",
       skipSubstep: true
     });
   });
 
+  it("defaults setup to paste auth mode", () => {
+    expect(parseArgs(["setup", "--target", "generic"])).toEqual({
+      command: "setup",
+      target: "generic",
+      dryRun: false,
+      authMode: "paste",
+      skipSubstep: false
+    });
+  });
+
+  it("parses --loopback as loopback auth mode", () => {
+    expect(parseArgs(["login", "--loopback"])).toEqual({ command: "login", authMode: "loopback" });
+  });
+
   it("parses login and report", () => {
-    expect(parseArgs(["login", "--no-browser"])).toEqual({ command: "login", noBrowser: true });
+    expect(parseArgs(["login", "--no-browser"])).toEqual({ command: "login", authMode: "device" });
+    expect(parseArgs(["login"])).toEqual({ command: "login", authMode: "paste" });
     expect(parseArgs(["report", "--target", "cursor"])).toEqual({ command: "report", target: "cursor" });
   });
 
@@ -23,15 +38,15 @@ describe("parseArgs", () => {
 });
 
 describe("resolveBaseUrl", () => {
-  it("uses Xerpa test and production API defaults", () => {
+  it("uses Xerpa test default and prod opt-in", () => {
     const originalBase = process.env.XAGENT_API_BASE;
     const originalEnv = process.env.XAGENT_ENV;
 
     delete process.env.XAGENT_API_BASE;
-    process.env.XAGENT_ENV = "test";
+    delete process.env.XAGENT_ENV;
     expect(resolveBaseUrl()).toBe("https://testdapp.xerpaai.com");
 
-    delete process.env.XAGENT_ENV;
+    process.env.XAGENT_ENV = "prod";
     expect(resolveBaseUrl()).toBe("https://api.xerpaai.com");
 
     process.env.XAGENT_API_BASE = "https://custom.example.com";
