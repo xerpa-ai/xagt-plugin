@@ -187,13 +187,6 @@ Hackathon path: `setup --target all` → build → `submit`. Switch accounts wit
 
 Credentials at `~/.config/xagent/credentials.json` (`%APPDATA%\xagent\credentials.json` on Windows), `chmod 600`.
 
-### Backend
-
-| Env var                  | Resolves to                       |
-|--------------------------|-----------------------------------|
-| _(unset)_                | `https://api.xerpaai.com` (prod)  |
-| `XAGENT_API_BASE=<url>`  | whatever you set                  |
-
 ### Troubleshooting
 
 | Symptom                                  | Fix                                                              |
@@ -203,15 +196,5 @@ Credentials at `~/.config/xagent/credentials.json` (`%APPDATA%\xagent\credential
 | `EACCES` writing to `~/.claude/skills/`  | Wrong user. Don't `sudo`.                                         |
 | `command not found: xagent-plugin`       | Not globally installed. Run `npm i -g @xagt/agent-plugin`.        |
 
-### Develop
-
-```bash
-npm install
-npm test
-npm run lint
-npm run build
-node dist/cli.js doctor
-node dist/cli.js install --target generic --dry-run
-```
 
 License: UNLICENSED — XerpaAI internal tooling, hackathon use granted.
