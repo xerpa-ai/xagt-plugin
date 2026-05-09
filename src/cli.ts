@@ -201,13 +201,26 @@ export async function runCli(args: string[]): Promise<number> {
     for (const item of result.installResults) {
       process.stdout.write(`  ${item.message}\n`);
     }
-    process.stdout.write(`  plugin-store: ${result.substep.status}\n\n`);
+    for (const step of result.substeps) {
+      const icon = step.status === "success" ? "✓" : step.status === "skipped" ? "·" : "✗";
+      process.stdout.write(`  ${icon} ${step.name}: ${step.status}${step.error ? ` (${step.error})` : ""}\n`);
+    }
+    process.stdout.write("\n");
     process.stdout.write(`  ✓ Registered as ${result.credentials!.userId}\n`);
-    process.stdout.write("  ✓ OKX skills installed in your agents\n\n");
+    const failed = result.substeps.filter((step) => step.status === "failed");
+    if (failed.length === 0) {
+      process.stdout.write("  ✓ OKX skills installed in your agents\n\n");
+    } else {
+      process.stdout.write(`  ⚠ ${failed.length} OKX skill install step(s) failed — registration is complete; retry with:\n`);
+      for (const step of failed) {
+        process.stdout.write(`      ${step.command}\n`);
+      }
+      process.stdout.write("\n");
+    }
     process.stdout.write("  Now go build your hackathon project.\n\n");
     process.stdout.write("  When you're ready to submit:\n");
     process.stdout.write("    xagt-plugin submit\n\n");
-    return 0;
+    return failed.length === 0 ? 0 : 2;
   }
 
   if (command.command === "submit") {
@@ -284,7 +297,7 @@ export async function runCli(args: string[]): Promise<number> {
 
 function writeHelp(): void {
   process.stdout.write(`Usage:
-  xagt-plugin setup [--target cursor|claude-code|generic|all] [--dry-run] [--no-browser] [--loopback] [--skip-substep]
+  xagt-plugin setup [--target cursor|claude-code|codex|opencode|generic|all] [--dry-run] [--no-browser] [--loopback] [--skip-substep]
                               # one-shot: registers you + installs OKX skills
   xagt-plugin submit [--name <s>] [--intro <s>] [--repo <url>] [--deploy <url>]
                               # generates README; you fork + PR to xerpa-ai/xagt-plugin

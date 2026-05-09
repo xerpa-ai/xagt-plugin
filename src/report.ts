@@ -24,15 +24,16 @@ export interface InstallReportPayload {
 export function createInstallReport(input: {
   target: "cursor" | "claude-code" | "generic";
   fingerprint: FingerprintInfo;
-  substep: SubstepResult;
+  substep: SubstepResult | InstallReportPayload["substep"];
   login: { status: "success" | "failed"; subject?: string; error?: string };
 }): InstallReportPayload {
+  const { command, status, exitCode, error, duration } = input.substep;
   return {
     schemaVersion: 1,
     target: input.target,
     login: input.login,
     fingerprint: input.fingerprint,
-    substep: input.substep,
+    substep: { command, status, exitCode, error, duration },
     occurredAt: new Date().toISOString()
   };
 }

@@ -2,9 +2,9 @@ import { loadCredentials, saveCredentials, type SavedCredentials } from "./auth/
 import { runLogin, type AuthMode } from "./auth/login.js";
 import { collectFingerprint } from "./fingerprint.js";
 import { installSkills, type InstallResult } from "./install.js";
-import { runPluginStoreSubstep, type SubstepResult } from "./install/substep.js";
+import { aggregateSubstep, runOkxSubsteps, type SubstepResult } from "./install/substep.js";
 import { createInstallReport, flushPendingReports, submitInstallReport } from "./report.js";
-import type { InstallTargetId, TargetSelector } from "./targets.js";
+import type { TargetSelector } from "./targets.js";
 
 export interface SetupOptions {
   baseUrl: string;
@@ -19,7 +19,7 @@ export interface SetupOptions {
 export interface SetupResult {
   credentials: SavedCredentials | null;
   installResults: InstallResult[];
-  substep: SubstepResult;
+  substeps: SubstepResult[];
   registered: boolean;
 }
 
@@ -41,10 +41,10 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   process.stdout.write("  Step 2/2 — installing OKX skills\n\n");
 
   const installResults = await installSkills({ target: options.target, dryRun: options.dryRun });
-  const substep = await runPluginStoreSubstep({ skip: options.skipSubstep || options.dryRun });
+  const substeps = await runOkxSubsteps({ skip: options.skipSubstep || options.dryRun });
 
   const firstTarget = installResults[0]?.target.id ?? "generic";
-  const targetForReport: InstallTargetId =
+  const targetForReport: "cursor" | "claude-code" | "generic" =
     firstTarget === "cursor" || firstTarget === "claude-code" ? firstTarget : "generic";
 
   const report = createInstallReport({
@@ -52,12 +52,12 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
     login: { status: "success", subject: credentials.userId },
     fingerprint: collectFingerprint({
       cliVersion: options.cliVersion,
-      agentRuntime: targetForReport
+      agentRuntime: firstTarget
     }),
-    substep
+    substep: aggregateSubstep(substeps)
   });
   await submitInstallReport({ baseUrl: options.baseUrl, credentials, report }).catch(() => undefined);
   await flushPendingReports({ baseUrl: options.baseUrl, credentials }).catch(() => undefined);
 
-  return { credentials, installResults, substep, registered: true };
+  return { credentials, installResults, substeps, registered: true };
 }

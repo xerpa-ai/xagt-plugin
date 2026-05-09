@@ -1,6 +1,8 @@
 export type InstallTargetId =
   | "cursor"
   | "claude-code"
+  | "codex"
+  | "opencode"
   | "generic";
 
 export type TargetSelector = InstallTargetId | "all";
@@ -27,6 +29,20 @@ export const SUPPORTED_TARGETS: readonly InstallTarget[] = [
     base: "home",
     skillDirectory: ".claude/skills/xagt-setup",
     notes: "Installs the skill into the Claude-compatible user skill directory."
+  },
+  {
+    id: "codex",
+    label: "Codex CLI user skill",
+    base: "home",
+    skillDirectory: ".codex/skills/xagt-setup",
+    notes: "Installs the skill into the OpenAI Codex CLI user skill directory."
+  },
+  {
+    id: "opencode",
+    label: "OpenCode user skill",
+    base: "home",
+    skillDirectory: ".config/opencode/skills/xagt-setup",
+    notes: "Installs the skill into the OpenCode user skill directory."
   },
   {
     id: "generic",
