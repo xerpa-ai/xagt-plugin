@@ -12,9 +12,17 @@ TxRadar is a local OKX OnchainOS intelligence console for spotting high-signal t
 
 https://github.com/wizardAEI/TxRadar
 
+## Screenshots
+
+![TxRadar overview radar](screenshots/overview.png)
+
+![TxRadar signal feed](screenshots/signal-feed.png)
+
+![TxRadar protected preview](screenshots/protected-preview.png)
+
 ## Deployed URL
 
-_n/a_
+https://wizardaei.github.io/TxRadar/
 
 ## Hackathon
 
