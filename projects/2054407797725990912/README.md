@@ -33,7 +33,7 @@ https://github.com/Th0rgal/sandboxed.sh
 
 ## Deployed URL
 
-_n/a_
+https://sandboxed.sh
 
 ## Hackathon
 
